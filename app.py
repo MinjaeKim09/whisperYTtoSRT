@@ -120,6 +120,7 @@ async def websocket_transcribe(websocket: WebSocket):
     """
     WebSocket endpoint for real-time transcription.
     Handles streaming transcription of YouTube videos with real-time updates.
+    Uses subprocess to ensure proper memory cleanup.
     """
     await websocket.accept()
     try:
@@ -139,17 +140,69 @@ async def websocket_transcribe(websocket: WebSocket):
                     }))
                     continue
                 
-                # Import the streaming function
-                from transcriber import process_youtube_video_streaming
+                # Check if transcriber.py exists
+                transcriber_path = os.path.join(os.path.dirname(__file__), 'transcriber.py')
+                if not os.path.exists(transcriber_path):
+                    await websocket.send_text(json.dumps({
+                        "type": "error",
+                        "message": f"transcriber.py not found at {transcriber_path}"
+                    }))
+                    continue
                 
-                # Process the video with streaming updates
-                for update in process_youtube_video_streaming(url, model_size):
-                    # Send each update to the client
-                    await websocket.send_text(json.dumps(update))
-                    
-                    # Break if there's an error to prevent further processing
-                    if update.get("type") == "error":
+                # Send initial status
+                await websocket.send_text(json.dumps({
+                    "type": "status",
+                    "message": "Starting transcription process..."
+                }))
+                
+                # Spawn a separate Python process for transcription with streaming output
+                # This ensures the model is completely unloaded when the process exits
+                process = subprocess.Popen([
+                    sys.executable,  # Use the same Python interpreter
+                    transcriber_path,  # Run the transcriber script with full path
+                    '--stream',  # Enable streaming mode
+                    '--url', url,  # Pass the URL as argument
+                    '--model-size', model_size  # Use specified model size
+                ], 
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                cwd=os.path.dirname(__file__)  # Set working directory to app's directory
+                )
+                
+                # Stream output from the subprocess
+                while True:
+                    # Read a line from stdout
+                    line = process.stdout.readline() if process.stdout else None
+                    if not line and process.poll() is not None:
                         break
+                    
+                    if line:
+                        try:
+                            # Parse the JSON update from the subprocess
+                            update = json.loads(line.strip())
+                            # Send the update to the client
+                            await websocket.send_text(json.dumps(update))
+                            
+                            # Break if there's an error to prevent further processing
+                            if update.get("type") == "error":
+                                break
+                                
+                        except json.JSONDecodeError:
+                            # If it's not JSON, it might be a debug message
+                            print(f"DEBUG from subprocess: {line.strip()}", file=sys.stderr)
+                
+                # Wait for the process to complete
+                return_code = process.wait()
+                
+                if return_code != 0:
+                    # Read any error output
+                    stderr_output = process.stderr.read() if process.stderr else ""
+                    error_msg = stderr_output.strip() if stderr_output else "Transcription process failed"
+                    await websocket.send_text(json.dumps({
+                        "type": "error",
+                        "message": error_msg
+                    }))
                 
             except json.JSONDecodeError:
                 await websocket.send_text(json.dumps({

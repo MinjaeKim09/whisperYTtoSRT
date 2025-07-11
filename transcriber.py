@@ -311,13 +311,34 @@ def standalone_transcribe(url, model_size="medium"):
 if __name__ == "__main__":
     # Command line interface for standalone execution
     parser = argparse.ArgumentParser(description="Transcribe YouTube video to SRT")
-    parser.add_argument("url", help="YouTube URL to transcribe")
+    parser.add_argument("--url", help="YouTube URL to transcribe")
     parser.add_argument("--model-size", default="medium", choices=["tiny", "base", "small", "medium", "large"], 
                        help="Whisper model size (default: medium)")
+    parser.add_argument("--stream", action="store_true", help="Enable streaming mode for real-time updates")
     
     args = parser.parse_args()
     
-    # Run transcription and exit
-    exit_code = standalone_transcribe(args.url, args.model_size)
-    sys.exit(exit_code)
+    # Check if we have a URL (either positional or named argument)
+    url = args.url
+    if not url and len(sys.argv) > 1 and not sys.argv[1].startswith('--'):
+        # Handle positional URL argument for backwards compatibility
+        url = sys.argv[1]
+    
+    if not url:
+        print(json.dumps({
+            "success": False,
+            "error": "URL is required"
+        }))
+        sys.exit(1)
+    
+    if args.stream:
+        # Streaming mode for WebSocket
+        for update in process_youtube_video_streaming(url, args.model_size):
+            print(json.dumps(update))
+            sys.stdout.flush()  # Ensure immediate output
+        sys.exit(0)
+    else:
+        # Traditional mode for HTTP endpoint
+        exit_code = standalone_transcribe(url, args.model_size)
+        sys.exit(exit_code)
 
