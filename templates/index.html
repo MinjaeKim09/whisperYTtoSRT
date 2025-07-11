@@ -44,35 +44,7 @@
             padding: 2rem;
         }
         
-        .mode-selector {
-            display: flex;
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 4px;
-            margin-bottom: 2rem;
-        }
-        
-        .mode-button {
-            flex: 1;
-            padding: 12px 24px;
-            border: none;
-            background: transparent;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 1rem;
-            font-weight: 500;
-        }
-        
-        .mode-button.active {
-            background: white;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            color: #667eea;
-        }
-        
-        .mode-button:not(.active) {
-            color: #6c757d;
-        }
+
         
         .input-section {
             margin-bottom: 2rem;
@@ -166,21 +138,7 @@
             color: #0c5460;
         }
         
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: #e9ecef;
-            border-radius: 4px;
-            overflow: hidden;
-            margin: 1rem 0;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            width: 0%;
-            transition: width 0.3s ease;
-        }
+
         
         .preview-section {
             display: none;
@@ -312,19 +270,11 @@
     <div class="container">
         <div class="header">
             <h1>🎵 WhisperRealtime</h1>
-            <p>Real-time YouTube transcription with live preview</p>
+            <p>Real-time YouTube transcription</p>
         </div>
         
         <div class="content">
-            <!-- Mode Selector -->
-            <div class="mode-selector">
-                <button class="mode-button active" data-mode="live">
-                    ⚡ Live Preview
-                </button>
-                <button class="mode-button" data-mode="traditional">
-                    📁 Traditional Download
-                </button>
-            </div>
+
             
             <!-- Input Section -->
             <div class="input-section">
@@ -347,9 +297,6 @@
             <div class="status-section">
                 <div class="status-card" id="statusCard">
                     <div id="statusMessage">Ready to transcribe</div>
-                    <div class="progress-bar" id="progressBar" style="display: none;">
-                        <div class="progress-fill" id="progressFill"></div>
-                    </div>
                 </div>
             </div>
             
@@ -380,7 +327,6 @@
     <script>
         // Global variables
         let websocket = null;
-        let currentMode = 'live';
         let segmentCount = 0;
         let srtContent = '';
         
@@ -390,22 +336,11 @@
         const startButton = document.getElementById('startButton');
         const statusCard = document.getElementById('statusCard');
         const statusMessage = document.getElementById('statusMessage');
-        const progressBar = document.getElementById('progressBar');
-        const progressFill = document.getElementById('progressFill');
         const previewSection = document.getElementById('previewSection');
         const previewContent = document.getElementById('previewContent');
         const previewStats = document.getElementById('previewStats');
         const downloadSection = document.getElementById('downloadSection');
         const downloadButton = document.getElementById('downloadButton');
-        
-        // Mode switching
-        document.querySelectorAll('.mode-button').forEach(button => {
-            button.addEventListener('click', () => {
-                document.querySelectorAll('.mode-button').forEach(b => b.classList.remove('active'));
-                button.classList.add('active');
-                currentMode = button.dataset.mode;
-            });
-        });
         
         // Main transcription function
         async function startTranscription() {
@@ -421,11 +356,7 @@
             startButton.disabled = true;
             startButton.innerHTML = '<span class="spinner"></span>Processing...';
             
-            if (currentMode === 'live') {
-                await startLiveTranscription(url, modelSize);
-            } else {
-                await startTraditionalTranscription(url, modelSize);
-            }
+            await startLiveTranscription(url, modelSize);
         }
         
         // Live transcription with WebSocket
@@ -467,38 +398,7 @@
             }
         }
         
-        // Traditional transcription with HTTP
-        async function startTraditionalTranscription(url, modelSize) {
-            try {
-                showStatus('info', 'Processing video... This may take a few minutes.');
-                progressBar.style.display = 'block';
-                
-                const response = await fetch('/generate-srt', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ url: url })
-                });
-                
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.detail || 'Transcription failed');
-                }
-                
-                const blob = await response.blob();
-                const downloadUrl = window.URL.createObjectURL(blob);
-                
-                showDownload(downloadUrl);
-                showStatus('success', 'Transcription completed successfully!');
-                
-            } catch (error) {
-                showStatus('error', error.message);
-            } finally {
-                resetButton();
-                progressBar.style.display = 'none';
-            }
-        }
+
         
         // Handle WebSocket messages
         function handleWebSocketMessage(data) {
@@ -581,8 +481,6 @@
             statusCard.classList.remove('show');
             previewSection.classList.remove('show');
             downloadSection.classList.remove('show');
-            progressBar.style.display = 'none';
-            progressFill.style.width = '0%';
             previewContent.innerHTML = `
                 <div style="text-align: center; color: #6c757d; padding: 2rem;">
                     Transcription segments will appear here in real-time...
