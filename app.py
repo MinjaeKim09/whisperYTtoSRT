@@ -1,29 +1,26 @@
 # app.py
-from fastapi import FastAPI, Request, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, Response
-from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-import subprocess
-import json
 import os
 import sys
-import uvicorn
+import json
+import subprocess
+from fastapi import FastAPI, HTTPException, Response
+from pydantic import BaseModel
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from fastapi.requests import Request
 
-# Initialize the FastAPI app
-app = FastAPI(title="WhisperRealtime", description="Real-time speech-to-text transcription")
+app = FastAPI()
 
-# Set up templates
-templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
+# Mount static files and templates
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
 
-# Pydantic model for request validation
 class TranscriptionRequest(BaseModel):
     url: str
 
-# --- Route to serve the main HTML page ---
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
 async def index(request: Request):
-    """Renders the main user interface page with real-time preview."""
+    """Serve the main page."""
     return templates.TemplateResponse("index.html", {"request": request})
 
 # --- API Route to handle the transcription process ---
@@ -112,121 +109,9 @@ async def generate_srt(request: TranscriptionRequest):
     except subprocess.CalledProcessError as e:
         raise HTTPException(status_code=500, detail=f"Transcription process failed: {e}")
     except Exception as e:
+        print(f"ERROR: Unexpected error: {e}", file=sys.stderr)
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
 
-# --- WebSocket endpoint for real-time transcription ---
-@app.websocket("/ws/transcribe")
-async def websocket_transcribe(websocket: WebSocket):
-    """
-    WebSocket endpoint for real-time transcription.
-    Handles streaming transcription of YouTube videos with real-time updates.
-    Uses subprocess to ensure proper memory cleanup.
-    """
-    await websocket.accept()
-    try:
-        while True:
-            # Wait for transcription request from client
-            data = await websocket.receive_text()
-            
-            try:
-                request_data = json.loads(data)
-                url = request_data.get('url')
-                model_size = request_data.get('model_size', 'medium')
-                
-                if not url:
-                    await websocket.send_text(json.dumps({
-                        "type": "error",
-                        "message": "URL is required"
-                    }))
-                    continue
-                
-                # Check if transcriber.py exists
-                transcriber_path = os.path.join(os.path.dirname(__file__), 'transcriber.py')
-                if not os.path.exists(transcriber_path):
-                    await websocket.send_text(json.dumps({
-                        "type": "error",
-                        "message": f"transcriber.py not found at {transcriber_path}"
-                    }))
-                    continue
-                
-                # Send initial status
-                await websocket.send_text(json.dumps({
-                    "type": "status",
-                    "message": "Starting transcription process..."
-                }))
-                
-                # Spawn a separate Python process for transcription with streaming output
-                # This ensures the model is completely unloaded when the process exits
-                process = subprocess.Popen([
-                    sys.executable,  # Use the same Python interpreter
-                    transcriber_path,  # Run the transcriber script with full path
-                    '--stream',  # Enable streaming mode
-                    '--url', url,  # Pass the URL as argument
-                    '--model-size', model_size  # Use specified model size
-                ], 
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                cwd=os.path.dirname(__file__)  # Set working directory to app's directory
-                )
-                
-                # Stream output from the subprocess
-                while True:
-                    # Read a line from stdout
-                    line = process.stdout.readline() if process.stdout else None
-                    if not line and process.poll() is not None:
-                        break
-                    
-                    if line:
-                        try:
-                            # Parse the JSON update from the subprocess
-                            update = json.loads(line.strip())
-                            # Send the update to the client
-                            await websocket.send_text(json.dumps(update))
-                            
-                            # Break if there's an error to prevent further processing
-                            if update.get("type") == "error":
-                                break
-                                
-                        except json.JSONDecodeError:
-                            # If it's not JSON, it might be a debug message
-                            print(f"DEBUG from subprocess: {line.strip()}", file=sys.stderr)
-                
-                # Wait for the process to complete
-                return_code = process.wait()
-                
-                if return_code != 0:
-                    # Read any error output
-                    stderr_output = process.stderr.read() if process.stderr else ""
-                    error_msg = stderr_output.strip() if stderr_output else "Transcription process failed"
-                    await websocket.send_text(json.dumps({
-                        "type": "error",
-                        "message": error_msg
-                    }))
-                
-            except json.JSONDecodeError:
-                await websocket.send_text(json.dumps({
-                    "type": "error",
-                    "message": "Invalid JSON format"
-                }))
-            except Exception as e:
-                await websocket.send_text(json.dumps({
-                    "type": "error",
-                    "message": f"An unexpected error occurred: {str(e)}"
-                }))
-            
-    except WebSocketDisconnect:
-        print("Client disconnected from WebSocket")
-    except Exception as e:
-        print(f"WebSocket error: {e}", file=sys.stderr)
-
-# --- Health check endpoint ---
-@app.get("/health")
-async def health():
-    """Health check endpoint."""
-    return {"status": "healthy", "service": "whisperRealtime"}
-
-# --- Main entry point for running the app ---
-if __name__ == '__main__':
-    # Use uvicorn to run the FastAPI app
-    uvicorn.run("app:app", host='0.0.0.0', port=8080, reload=True)
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8080)

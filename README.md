@@ -1,19 +1,20 @@
-# whisperRealtime
+# Whisper Transcription
 
-A web application for real-time speech-to-text transcription using OpenAI Whisper (and MLX-Whisper for Apple Silicon). This project is a real-time extension of whisperWebUI, designed to provide live transcription as audio is received, rather than processing pre-recorded files or YouTube videos.
+A web application for YouTube video transcription using OpenAI Whisper and MLX-Whisper for Apple Silicon. This project provides a simple web interface to transcribe YouTube videos and download SRT subtitle files.
 
 ## Features
 
-- 🎤 Real-time audio transcription in the browser
-- ⚡ Live transcription feed updates in the UI as you speak
+- 🎵 YouTube video transcription to SRT format
 - 🌐 Web-based interface for easy use
+- 📱 Responsive design
 - 🔄 Cross-platform compatibility
+- ⚡ Automatic model selection (MLX-Whisper for Apple Silicon, OpenAI Whisper for others)
+- 📥 Direct SRT file download
 
 ## Requirements
 
 - Python 3.8+
 - FFmpeg (for audio processing)
-- Microphone access in browser
 - **Apple Silicon Macs**: MLX-Whisper for optimal performance
 - **Other platforms**: OpenAI Whisper with CUDA/CPU support
 
@@ -43,37 +44,42 @@ A web application for real-time speech-to-text transcription using OpenAI Whispe
    ```
    http://localhost:8080
    ```
-3. **Allow microphone access and start speaking.**
-4. **See real-time transcription appear in the UI.**
+3. **Enter a YouTube URL and select your preferred model size.**
+4. **Click "Start Transcription" and wait for processing to complete.**
+5. **Download the generated SRT file.**
 
-## Roadmap: Real-Time Transcription Feed
+## How It Works
 
-To implement a real-time transcription feed in the UI, the following steps are planned:
+1. **Audio Extraction**: Downloads audio from the provided YouTube URL using yt-dlp
+2. **Transcription**: Processes the entire audio file using Whisper (batch processing)
+3. **SRT Generation**: Converts the transcription into standard SRT subtitle format
+4. **Download**: Provides the SRT file for download
 
-1. **WebSocket Integration:**
-   - Use WebSockets (e.g., Flask-SocketIO) to enable real-time, bidirectional communication between the server and browser.
-2. **Frontend Audio Capture:**
-   - Use JavaScript (Web Audio API/MediaRecorder) to capture microphone audio in the browser and stream it to the backend in small chunks.
-3. **Backend Streaming Transcription:**
-   - Modify the backend to accept audio streams and transcribe them incrementally using Whisper.
-   - Send partial transcription results back to the frontend as they are produced.
-4. **Live UI Updates:**
-   - Update the frontend to display the transcription feed in real time, appending new text as it arrives.
-5. **Performance Optimization:**
-   - Tune chunk sizes, buffering, and latency for smooth, low-lag transcription.
-6. **(Optional) Speaker Diarization & Language Support:**
-   - Add features like speaker identification or multi-language support if needed.
+## Model Sizes
+
+- **Tiny**: Fastest processing, less accurate
+- **Base**: Good balance of speed and accuracy
+- **Small**: Better accuracy than base
+- **Medium**: Recommended balance (default)
+- **Large**: Best accuracy, slower processing
 
 ## Project Structure
 
 ```
 whisperRealtime/
-├── app.py              # Flask web application (to be updated for real-time)
-├── transcriber.py      # Core transcription logic (to be updated for streaming)
-├── templates/          # HTML templates (to be updated for live feed)
+├── app.py              # FastAPI web application
+├── transcriber.py      # Core transcription logic
+├── templates/          # HTML templates
 ├── requirements.txt    # Python dependencies
 └── README.md           # This file
 ```
+
+## Technical Details
+
+- Uses **MLX-Whisper** on Apple Silicon for optimal performance
+- Falls back to **OpenAI Whisper** on other platforms
+- Subprocess isolation ensures proper memory cleanup after transcription
+- Temporary files are automatically cleaned up
 
 ## License
 

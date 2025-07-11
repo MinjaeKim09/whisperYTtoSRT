@@ -1,518 +1,295 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>WhisperRealtime - YouTube to SRT</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Whisper Transcription</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        * {
             margin: 0;
-            padding: 2rem;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            color: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-        
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 2rem;
-            text-align: center;
-        }
-        
-        .header h1 {
-            margin: 0;
-            font-size: 2.5rem;
-            font-weight: 300;
-        }
-        
-        .header p {
-            margin: 0.5rem 0 0 0;
-            opacity: 0.9;
-            font-size: 1.1rem;
-        }
-        
-        .content {
-            padding: 2rem;
-        }
-        
 
-        
-        .input-section {
+        .container {
+            max-width: 600px;
+            width: 90%;
+            padding: 2rem;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            text-align: center;
             margin-bottom: 2rem;
         }
-        
-        .input-group {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1rem;
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
         }
-        
+
+        .header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #333;
+        }
+
         .url-input {
-            flex: 1;
-            padding: 16px;
-            border: 2px solid #e9ecef;
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e1e5e9;
             border-radius: 8px;
             font-size: 1rem;
             transition: border-color 0.3s ease;
         }
-        
+
         .url-input:focus {
             outline: none;
             border-color: #667eea;
         }
-        
+
         .model-select {
-            padding: 16px;
-            border: 2px solid #e9ecef;
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e1e5e9;
             border-radius: 8px;
             font-size: 1rem;
             background: white;
-            min-width: 120px;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
         }
-        
-        .action-button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+        .model-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .submit-button {
+            width: 100%;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
             border: none;
-            padding: 16px 32px;
             border-radius: 8px;
-            font-size: 1rem;
+            font-size: 1.1rem;
             font-weight: 600;
             cursor: pointer;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
-            min-width: 140px;
         }
-        
-        .action-button:hover {
+
+        .submit-button:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
         }
-        
-        .action-button:disabled {
+
+        .submit-button:disabled {
             opacity: 0.6;
             cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
         }
-        
-        .status-section {
-            margin-bottom: 2rem;
-        }
-        
-        .status-card {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            display: none;
-        }
-        
-        .status-card.show {
-            display: block;
-        }
-        
-        .status-card.error {
-            background: #f8d7da;
-            border-left: 4px solid #dc3545;
-            color: #721c24;
-        }
-        
-        .status-card.success {
-            background: #d4edda;
-            border-left: 4px solid #28a745;
-            color: #155724;
-        }
-        
-        .status-card.info {
-            background: #d1ecf1;
-            border-left: 4px solid #17a2b8;
-            color: #0c5460;
-        }
-        
 
-        
-        .preview-section {
-            display: none;
-        }
-        
-        .preview-section.show {
-            display: block;
-        }
-        
-        .preview-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-        
-        .preview-title {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: #333;
-        }
-        
-        .preview-stats {
-            color: #6c757d;
-            font-size: 0.9rem;
-        }
-        
-        .preview-content {
-            background: #f8f9fa;
+        .status {
+            margin-top: 1.5rem;
+            padding: 1rem;
             border-radius: 8px;
-            padding: 1.5rem;
-            max-height: 400px;
-            overflow-y: auto;
-            border: 1px solid #e9ecef;
-        }
-        
-        .segment {
-            margin-bottom: 1rem;
-            padding: 12px;
-            background: white;
-            border-radius: 6px;
-            border-left: 3px solid #667eea;
-            animation: slideIn 0.3s ease;
-        }
-        
-        .segment-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-        
-        .segment-number {
-            font-weight: 600;
-            color: #667eea;
-            font-size: 0.9rem;
-        }
-        
-        .segment-time {
-            color: #6c757d;
-            font-size: 0.9rem;
-            font-family: monospace;
-        }
-        
-        .segment-text {
-            color: #333;
-            line-height: 1.5;
-        }
-        
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .download-section {
             text-align: center;
-            padding: 2rem;
-            background: #f8f9fa;
-            border-radius: 8px;
             display: none;
         }
-        
-        .download-section.show {
-            display: block;
+
+        .status.info {
+            background: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #bbdefb;
         }
-        
-        .download-button {
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 16px 32px;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-block;
-            transition: background-color 0.3s ease;
+
+        .status.success {
+            background: #e8f5e8;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
         }
-        
-        .download-button:hover {
-            background: #218838;
+
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
         }
-        
-        .spinner {
+
+        .loading {
             display: inline-block;
             width: 20px;
             height: 20px;
-            border: 2px solid #ffffff3d;
-            border-top: 2px solid #ffffff;
+            border: 3px solid rgba(255, 255, 255, 0.3);
             border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-right: 8px;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 0.5rem;
         }
-        
+
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e1e5e9;
+            color: #666;
+            font-size: 0.9rem;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🎵 WhisperRealtime</h1>
-            <p>Real-time YouTube transcription</p>
+            <h1>🎵 Whisper Transcription</h1>
+            <p>YouTube video to SRT transcription</p>
         </div>
         
-        <div class="content">
-
-            
-            <!-- Input Section -->
-            <div class="input-section">
-                <div class="input-group">
-                    <input type="text" class="url-input" id="urlInput" placeholder="Enter YouTube URL here..." />
-                    <select class="model-select" id="modelSelect">
-                        <option value="tiny">Tiny (Fast)</option>
-                        <option value="base">Base</option>
-                        <option value="small">Small</option>
-                        <option value="medium" selected>Medium (Recommended)</option>
-                        <option value="large">Large (Slow)</option>
-                    </select>
-                    <button class="action-button" id="startButton">
-                        🚀 Start Transcription
-                    </button>
-                </div>
+        <form id="transcriptionForm">
+            <div class="form-group">
+                <label for="urlInput">YouTube URL</label>
+                <input type="url" 
+                       class="url-input" 
+                       id="urlInput" 
+                       placeholder="https://www.youtube.com/watch?v=..." 
+                       required />
             </div>
             
-            <!-- Status Section -->
-            <div class="status-section">
-                <div class="status-card" id="statusCard">
-                    <div id="statusMessage">Ready to transcribe</div>
-                </div>
+            <div class="form-group">
+                <label for="modelSelect">Model Size</label>
+                <select class="model-select" id="modelSelect">
+                    <option value="tiny">Tiny (Fastest, less accurate)</option>
+                    <option value="base">Base</option>
+                    <option value="small">Small</option>
+                    <option value="medium" selected>Medium (Recommended)</option>
+                    <option value="large">Large (Slowest, most accurate)</option>
+                </select>
             </div>
             
-            <!-- Preview Section -->
-            <div class="preview-section" id="previewSection">
-                <div class="preview-header">
-                    <div class="preview-title">📝 Live Transcription Preview</div>
-                    <div class="preview-stats" id="previewStats">0 segments</div>
-                </div>
-                <div class="preview-content" id="previewContent">
-                    <div style="text-align: center; color: #6c757d; padding: 2rem;">
-                        Transcription segments will appear here in real-time...
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Download Section -->
-            <div class="download-section" id="downloadSection">
-                <h3>✅ Transcription Complete!</h3>
-                <p>Your SRT file is ready for download.</p>
-                <a href="#" class="download-button" id="downloadButton">
-                    📥 Download SRT File
-                </a>
-            </div>
+            <button type="submit" class="submit-button" id="submitButton">
+                🚀 Start Transcription
+            </button>
+        </form>
+        
+        <div class="status" id="status"></div>
+        
+        <div class="footer">
+            <p>Powered by OpenAI Whisper and MLX-Whisper</p>
         </div>
     </div>
 
     <script>
-        // Global variables
-        let websocket = null;
-        let segmentCount = 0;
-        let srtContent = '';
-        
-        // DOM elements
+        const form = document.getElementById('transcriptionForm');
         const urlInput = document.getElementById('urlInput');
         const modelSelect = document.getElementById('modelSelect');
-        const startButton = document.getElementById('startButton');
-        const statusCard = document.getElementById('statusCard');
-        const statusMessage = document.getElementById('statusMessage');
-        const previewSection = document.getElementById('previewSection');
-        const previewContent = document.getElementById('previewContent');
-        const previewStats = document.getElementById('previewStats');
-        const downloadSection = document.getElementById('downloadSection');
-        const downloadButton = document.getElementById('downloadButton');
-        
-        // Main transcription function
-        async function startTranscription() {
+        const submitButton = document.getElementById('submitButton');
+        const status = document.getElementById('status');
+
+        function showStatus(message, type = 'info') {
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+        }
+
+        function hideStatus() {
+            status.style.display = 'none';
+        }
+
+        function setLoading(loading) {
+            if (loading) {
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<span class="loading"></span>Processing...';
+            } else {
+                submitButton.disabled = false;
+                submitButton.innerHTML = '🚀 Start Transcription';
+            }
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
             const url = urlInput.value.trim();
-            const modelSize = modelSelect.value;
             
             if (!url) {
-                showStatus('error', 'Please enter a YouTube URL');
+                showStatus('Please enter a valid YouTube URL', 'error');
                 return;
             }
-            
-            resetUI();
-            startButton.disabled = true;
-            startButton.innerHTML = '<span class="spinner"></span>Processing...';
-            
-            await startLiveTranscription(url, modelSize);
-        }
-        
-        // Live transcription with WebSocket
-        async function startLiveTranscription(url, modelSize) {
-            try {
-                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const wsUrl = `${protocol}//${window.location.host}/ws/transcribe`;
-                
-                websocket = new WebSocket(wsUrl);
-                
-                websocket.onopen = () => {
-                    showStatus('info', 'Connected to transcription service...');
-                    previewSection.classList.add('show');
-                    
-                    // Send transcription request
-                    websocket.send(JSON.stringify({
-                        url: url,
-                        model_size: modelSize
-                    }));
-                };
-                
-                websocket.onmessage = (event) => {
-                    const data = JSON.parse(event.data);
-                    handleWebSocketMessage(data);
-                };
-                
-                websocket.onerror = (error) => {
-                    showStatus('error', 'WebSocket connection failed');
-                    resetButton();
-                };
-                
-                websocket.onclose = () => {
-                    resetButton();
-                };
-                
-            } catch (error) {
-                showStatus('error', `Connection failed: ${error.message}`);
-                resetButton();
-            }
-        }
-        
 
-        
-        // Handle WebSocket messages
-        function handleWebSocketMessage(data) {
-            switch (data.type) {
-                case 'status':
-                    showStatus('info', data.message);
-                    break;
+            hideStatus();
+            setLoading(true);
+            showStatus('Starting transcription... This may take a few minutes.', 'info');
+
+            try {
+                const response = await fetch('/generate-srt', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        url: url,
+                        model_size: modelSelect.value
+                    })
+                });
+
+                if (response.ok) {
+                    // Get the SRT content as text
+                    const srtContent = await response.text();
                     
-                case 'segment':
-                    addSegment(data);
-                    updateStats();
-                    break;
+                    // Create a download link
+                    const blob = new Blob([srtContent], { type: 'text/plain' });
+                    const downloadUrl = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = downloadUrl;
+                    link.download = 'transcription.srt';
+                    link.textContent = 'Download SRT File';
                     
-                case 'complete':
-                    showStatus('success', data.message);
-                    srtContent = data.srt_content;
-                    createDownloadLink();
-                    resetButton();
-                    break;
+                    showStatus('Transcription completed successfully!', 'success');
                     
-                case 'error':
-                    showStatus('error', data.message);
-                    resetButton();
-                    break;
-            }
-        }
-        
-        // Add segment to preview
-        function addSegment(segmentData) {
-            segmentCount++;
-            
-            const segmentElement = document.createElement('div');
-            segmentElement.className = 'segment';
-            segmentElement.innerHTML = `
-                <div class="segment-header">
-                    <span class="segment-number">Segment ${segmentData.index}</span>
-                    <span class="segment-time">${segmentData.start_time} → ${segmentData.end_time}</span>
-                </div>
-                <div class="segment-text">${segmentData.text}</div>
-            `;
-            
-            // Clear placeholder if this is the first segment
-            if (segmentCount === 1) {
-                previewContent.innerHTML = '';
-            }
-            
-            previewContent.appendChild(segmentElement);
-            previewContent.scrollTop = previewContent.scrollHeight;
-        }
-        
-        // Update preview statistics
-        function updateStats() {
-            previewStats.textContent = `${segmentCount} segment${segmentCount !== 1 ? 's' : ''}`;
-        }
-        
-        // Show status message
-        function showStatus(type, message) {
-            statusCard.className = `status-card show ${type}`;
-            statusMessage.textContent = message;
-        }
-        
-        // Create download link for SRT content
-        function createDownloadLink() {
-            const blob = new Blob([srtContent], { type: 'text/plain' });
-            const downloadUrl = window.URL.createObjectURL(blob);
-            showDownload(downloadUrl);
-        }
-        
-        // Show download section
-        function showDownload(downloadUrl) {
-            downloadButton.href = downloadUrl;
-            downloadButton.download = 'transcription.srt';
-            downloadSection.classList.add('show');
-        }
-        
-        // Reset UI
-        function resetUI() {
-            segmentCount = 0;
-            srtContent = '';
-            statusCard.classList.remove('show');
-            previewSection.classList.remove('show');
-            downloadSection.classList.remove('show');
-            previewContent.innerHTML = `
-                <div style="text-align: center; color: #6c757d; padding: 2rem;">
-                    Transcription segments will appear here in real-time...
-                </div>
-            `;
-            previewStats.textContent = '0 segments';
-        }
-        
-        // Reset button state
-        function resetButton() {
-            startButton.disabled = false;
-            startButton.innerHTML = '🚀 Start Transcription';
-            
-            if (websocket) {
-                websocket.close();
-                websocket = null;
-            }
-        }
-        
-        // Event listeners
-        startButton.addEventListener('click', startTranscription);
-        
-        urlInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                startTranscription();
-            }
-        });
-        
-        // Clean up on page unload
-        window.addEventListener('beforeunload', () => {
-            if (websocket) {
-                websocket.close();
+                    // Add download link to status
+                    const downloadDiv = document.createElement('div');
+                    downloadDiv.style.marginTop = '1rem';
+                    downloadDiv.appendChild(link);
+                    status.appendChild(downloadDiv);
+                    
+                    // Auto-download
+                    link.click();
+                    
+                } else {
+                    const errorData = await response.json();
+                    showStatus(`Error: ${errorData.detail || 'Transcription failed'}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`Network error: ${error.message}`, 'error');
+            } finally {
+                setLoading(false);
             }
         });
     </script>
