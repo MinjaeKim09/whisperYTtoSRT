@@ -15,6 +15,7 @@ templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "t
 
 class TranscriptionRequest(BaseModel):
     url: str
+    model_size: str = "medium"
 
 @app.get("/")
 async def index(request: Request):
@@ -41,15 +42,21 @@ async def generate_srt(request: TranscriptionRequest):
         
         print(f"DEBUG: Running transcriber with URL: {url}", file=sys.stderr)
         print(f"DEBUG: Transcriber path: {transcriber_path}", file=sys.stderr)
+        print(f"DEBUG: Model size: {request.model_size}", file=sys.stderr)
+        
+        # Prepare the command
+        command = [
+            sys.executable,  # Use the same Python interpreter
+            transcriber_path,  # Run the transcriber script with full path
+            '--url', url,  # Pass the URL with --url flag
+            '--model-size', request.model_size  # Use selected model size
+        ]
+        
+        print(f"DEBUG: Executing command: {' '.join(command)}", file=sys.stderr)
         
         # Spawn a separate Python process for transcription
         # This ensures the model is completely unloaded when the process exits
-        result = subprocess.run([
-            sys.executable,  # Use the same Python interpreter
-            transcriber_path,  # Run the transcriber script with full path
-            url,  # Pass the URL as argument
-            '--model-size', 'medium'  # Use medium model size
-        ], 
+        result = subprocess.run(command, 
         capture_output=True,  # Capture output
         text=True,  # Return text instead of bytes
         timeout=300,  # 5 minute timeout
