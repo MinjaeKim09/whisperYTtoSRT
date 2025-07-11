@@ -1,36 +1,42 @@
 # app.py
-from flask import Flask, render_template, request, jsonify, make_response
+from fastapi import FastAPI, Request, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse, Response
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 import subprocess
 import json
 import os
 import sys
+import uvicorn
 
-# Initialize the Flask app
-app = Flask(__name__)
+# Initialize the FastAPI app
+app = FastAPI(title="WhisperRealtime", description="Real-time speech-to-text transcription")
+
+# Set up templates
+templates = Jinja2Templates(directory="templates")
+
+# Pydantic model for request validation
+class TranscriptionRequest(BaseModel):
+    url: str
 
 # --- Route to serve the main HTML page ---
-@app.route('/')
-def index():
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
     """Renders the main user interface page (basic version)."""
-    return render_template('index_basic.html')
+    return templates.TemplateResponse("index_basic.html", {"request": request})
 
 # --- API Route to handle the transcription process ---
-@app.route('/generate-srt', methods=['POST'])
-def generate_srt():
+@app.post('/generate-srt')
+async def generate_srt(request: TranscriptionRequest):
     """
     Receives a YouTube URL, spawns a separate process for transcription,
     and returns the SRT file.
     """
-    # Try to get JSON data first
-    data = request.get_json(silent=True)
-    if data and 'url' in data:
-        url = data.get('url')
-    else:
-        # Fallback to form data
-        url = request.form.get('url')
-
+    url = request.url
+    
     if not url:
-        return jsonify({'error': 'URL is required.'}), 400
+        raise HTTPException(status_code=400, detail="URL is required.")
 
     try:
         # Spawn a separate Python process for transcription
@@ -50,7 +56,7 @@ def generate_srt():
         if result.returncode != 0:
             # Try to parse error from stderr
             error_msg = result.stderr.strip() if result.stderr else "Transcription failed"
-            return jsonify({'error': error_msg}), 500
+            raise HTTPException(status_code=500, detail=error_msg)
         
         # Parse the JSON output from the transcription process
         try:
@@ -61,41 +67,71 @@ def generate_srt():
             print(f"DEBUG: Raw stdout: {repr(stdout_clean)}", file=sys.stderr)
             
             if not stdout_clean:
-                return jsonify({'error': 'No output from transcription process'}), 500
+                raise HTTPException(status_code=500, detail="No output from transcription process")
             
             output_data = json.loads(stdout_clean)
             
             if not output_data.get('success', False):
                 error_msg = output_data.get('error', 'Transcription failed')
-                return jsonify({'error': error_msg}), 500
+                raise HTTPException(status_code=500, detail=error_msg)
             
             # Get the SRT content
             srt_content = output_data.get('result', '')
             
             if not srt_content:
-                return jsonify({'error': 'No transcription content generated'}), 500
+                raise HTTPException(status_code=500, detail="No transcription content generated")
             
             # Create a response that the browser will treat as a file download
-            response = make_response(srt_content)
-            response.headers['Content-Disposition'] = 'attachment; filename=transcription.srt'
-            response.mimetype = 'text/plain'
-            
-            return response
+            return Response(
+                content=srt_content,
+                media_type="text/plain",
+                headers={"Content-Disposition": "attachment; filename=transcription.srt"}
+            )
             
         except json.JSONDecodeError as e:
             # Log the problematic output for debugging
             print(f"ERROR: Failed to parse JSON. Raw output: {repr(result.stdout)}", file=sys.stderr)
             print(f"ERROR: stderr output: {repr(result.stderr)}", file=sys.stderr)
-            return jsonify({'error': f'Failed to parse transcription output: {e}. Check server logs for details.'}), 500
+            raise HTTPException(status_code=500, detail=f"Failed to parse transcription output: {e}. Check server logs for details.")
             
     except subprocess.TimeoutExpired:
-        return jsonify({'error': 'Transcription timed out after 5 minutes'}), 500
+        raise HTTPException(status_code=500, detail="Transcription timed out after 5 minutes")
     except subprocess.CalledProcessError as e:
-        return jsonify({'error': f'Transcription process failed: {e}'}), 500
+        raise HTTPException(status_code=500, detail=f"Transcription process failed: {e}")
     except Exception as e:
-        return jsonify({'error': f'An unexpected error occurred: {e}'}), 500
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
+
+# --- WebSocket endpoint for real-time transcription (future implementation) ---
+@app.websocket("/ws/transcribe")
+async def websocket_transcribe(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time audio transcription.
+    This is a placeholder for future real-time functionality.
+    """
+    await websocket.accept()
+    try:
+        while True:
+            # Wait for audio data from client
+            data = await websocket.receive_bytes()
+            
+            # TODO: Process audio data with Whisper in real-time
+            # For now, just echo back a placeholder message
+            await websocket.send_text(json.dumps({
+                "type": "transcription",
+                "text": "Real-time transcription coming soon...",
+                "timestamp": "00:00:00"
+            }))
+            
+    except WebSocketDisconnect:
+        print("Client disconnected from WebSocket")
+
+# --- Health check endpoint ---
+@app.get("/health")
+async def health():
+    """Health check endpoint."""
+    return {"status": "healthy", "service": "whisperRealtime"}
 
 # --- Main entry point for running the app ---
 if __name__ == '__main__':
-    # Use port 8080 for broader compatibility
-    app.run(host='0.0.0.0', port=8080, debug=True)
+    # Use uvicorn to run the FastAPI app
+    uvicorn.run("app:app", host='0.0.0.0', port=8080, reload=True)
