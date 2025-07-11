@@ -5,14 +5,12 @@ import json
 import subprocess
 from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel
-from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
 
 app = FastAPI()
 
-# Mount static files and templates
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# Mount templates
 templates = Jinja2Templates(directory="templates")
 
 class TranscriptionRequest(BaseModel):
