@@ -1,30 +1,26 @@
 # app.py
-from fastapi import FastAPI, Request, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, Response
-from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-import subprocess
-import json
 import os
 import sys
-import uvicorn
+import json
+import subprocess
+from fastapi import FastAPI, HTTPException, Response
+from pydantic import BaseModel
+from fastapi.templating import Jinja2Templates
+from fastapi.requests import Request
 
-# Initialize the FastAPI app
-app = FastAPI(title="WhisperRealtime", description="Real-time speech-to-text transcription")
+app = FastAPI()
 
-# Set up templates
-templates = Jinja2Templates(directory="templates")
+# Mount templates - use absolute path relative to this script
+templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
 
-# Pydantic model for request validation
 class TranscriptionRequest(BaseModel):
     url: str
+    model_size: str = "medium"
 
-# --- Route to serve the main HTML page ---
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
 async def index(request: Request):
-    """Renders the main user interface page (basic version)."""
-    return templates.TemplateResponse("index_basic.html", {"request": request})
+    """Serve the main page."""
+    return templates.TemplateResponse("index.html", {"request": request})
 
 # --- API Route to handle the transcription process ---
 @app.post('/generate-srt')
@@ -39,23 +35,42 @@ async def generate_srt(request: TranscriptionRequest):
         raise HTTPException(status_code=400, detail="URL is required.")
 
     try:
+        # Check if transcriber.py exists
+        transcriber_path = os.path.join(os.path.dirname(__file__), 'transcriber.py')
+        if not os.path.exists(transcriber_path):
+            raise HTTPException(status_code=500, detail=f"transcriber.py not found at {transcriber_path}")
+        
+        print(f"DEBUG: Running transcriber with URL: {url}", file=sys.stderr)
+        print(f"DEBUG: Transcriber path: {transcriber_path}", file=sys.stderr)
+        print(f"DEBUG: Model size: {request.model_size}", file=sys.stderr)
+        
+        # Prepare the command
+        command = [
+            sys.executable,  # Use the same Python interpreter
+            transcriber_path,  # Run the transcriber script with full path
+            '--url', url,  # Pass the URL with --url flag
+            '--model-size', request.model_size  # Use selected model size
+        ]
+        
+        print(f"DEBUG: Executing command: {' '.join(command)}", file=sys.stderr)
+        
         # Spawn a separate Python process for transcription
         # This ensures the model is completely unloaded when the process exits
-        result = subprocess.run([
-            sys.executable,  # Use the same Python interpreter
-            'transcriber.py',  # Run the transcriber script
-            url,  # Pass the URL as argument
-            '--model-size', 'medium'  # Use medium model size
-        ], 
+        result = subprocess.run(command, 
         capture_output=True,  # Capture output
         text=True,  # Return text instead of bytes
-        timeout=300  # 5 minute timeout
+        timeout=300,  # 5 minute timeout
+        cwd=os.path.dirname(__file__)  # Set working directory to app's directory
         )
         
         # Check if the process completed successfully
         if result.returncode != 0:
             # Try to parse error from stderr
             error_msg = result.stderr.strip() if result.stderr else "Transcription failed"
+            # Log detailed error information
+            print(f"ERROR: Process failed with return code {result.returncode}", file=sys.stderr)
+            print(f"ERROR: stderr: {repr(result.stderr)}", file=sys.stderr)
+            print(f"ERROR: stdout: {repr(result.stdout)}", file=sys.stderr)
             raise HTTPException(status_code=500, detail=error_msg)
         
         # Parse the JSON output from the transcription process
@@ -99,39 +114,9 @@ async def generate_srt(request: TranscriptionRequest):
     except subprocess.CalledProcessError as e:
         raise HTTPException(status_code=500, detail=f"Transcription process failed: {e}")
     except Exception as e:
+        print(f"ERROR: Unexpected error: {e}", file=sys.stderr)
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
 
-# --- WebSocket endpoint for real-time transcription (future implementation) ---
-@app.websocket("/ws/transcribe")
-async def websocket_transcribe(websocket: WebSocket):
-    """
-    WebSocket endpoint for real-time audio transcription.
-    This is a placeholder for future real-time functionality.
-    """
-    await websocket.accept()
-    try:
-        while True:
-            # Wait for audio data from client
-            data = await websocket.receive_bytes()
-            
-            # TODO: Process audio data with Whisper in real-time
-            # For now, just echo back a placeholder message
-            await websocket.send_text(json.dumps({
-                "type": "transcription",
-                "text": "Real-time transcription coming soon...",
-                "timestamp": "00:00:00"
-            }))
-            
-    except WebSocketDisconnect:
-        print("Client disconnected from WebSocket")
-
-# --- Health check endpoint ---
-@app.get("/health")
-async def health():
-    """Health check endpoint."""
-    return {"status": "healthy", "service": "whisperRealtime"}
-
-# --- Main entry point for running the app ---
-if __name__ == '__main__':
-    # Use uvicorn to run the FastAPI app
-    uvicorn.run("app:app", host='0.0.0.0', port=8080, reload=True)
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8080)

@@ -3,137 +3,295 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YouTube to SRT Converter</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>Whisper Transcription</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        .spinner {
-            border-top-color: #3498db;
-            animation: spin 1s linear infinite;
+
+        .container {
+            max-width: 600px;
+            width: 90%;
+            padding: 2rem;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
         }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .url-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .url-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .model-select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+
+        .model-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .submit-button {
+            width: 100%;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .submit-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .submit-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .status {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            display: none;
+        }
+
+        .status.info {
+            background: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #bbdefb;
+        }
+
+        .status.success {
+            background: #e8f5e8;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 0.5rem;
+        }
+
         @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
+            to { transform: rotate(360deg); }
         }
-        .error-message {
-            background-color: #4a2222;
-            border-left: 4px solid #ef4444;
-            color: #fecaca;
+
+        .footer {
+            text-align: center;
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e1e5e9;
+            color: #666;
+            font-size: 0.9rem;
         }
     </style>
 </head>
-<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen">
-
-    <div class="w-full max-w-lg p-8 space-y-6 bg-gray-800 rounded-xl shadow-lg">
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎵 Whisper Transcription</h1>
+            <p>YouTube video to SRT transcription</p>
+        </div>
         
-        <div class="text-center">
-            <h1 class="text-3xl font-bold text-white">YouTube to SRT Converter</h1>
-            <p class="text-gray-400 mt-2">Enter a YouTube video URL to generate a subtitle (.srt) file.</p>
-        </div>
-
-        <div id="error-box" class="hidden p-4 rounded-lg error-message"></div>
-
-        <div id="form-container" class="space-y-4">
-            <div>
-                <label for="youtube-url" class="text-sm font-medium text-gray-300 block mb-2">YouTube URL</label>
-                <input type="url" id="youtube-url" placeholder="https://www.youtube.com/watch?v=..." class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200">
+        <form id="transcriptionForm">
+            <div class="form-group">
+                <label for="urlInput">YouTube URL</label>
+                <input type="url" 
+                       class="url-input" 
+                       id="urlInput" 
+                       placeholder="https://www.youtube.com/watch?v=..." 
+                       required />
             </div>
-            <button id="generate-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105">
-                <span id="btn-text">Generate SRT File</span>
-                <div id="btn-spinner" class="hidden spinner w-5 h-5 border-2 border-gray-400 rounded-full mx-auto"></div>
+            
+            <div class="form-group">
+                <label for="modelSelect">Model Size</label>
+                <select class="model-select" id="modelSelect">
+                    <option value="tiny">Tiny (Fastest, less accurate)</option>
+                    <option value="base">Base</option>
+                    <option value="small">Small</option>
+                    <option value="medium" selected>Medium (Recommended)</option>
+                    <option value="large">Large (Slowest, most accurate)</option>
+                </select>
+            </div>
+            
+            <button type="submit" class="submit-button" id="submitButton">
+                🚀 Start Transcription
             </button>
+        </form>
+        
+        <div class="status" id="status"></div>
+        
+        <div class="footer">
+            <p>Powered by OpenAI Whisper and MLX-Whisper</p>
         </div>
-
     </div>
 
     <script>
-        const generateBtn = document.getElementById('generate-btn');
-        const urlInput = document.getElementById('youtube-url');
-        const errorBox = document.getElementById('error-box');
-        const btnText = document.getElementById('btn-text');
-        const btnSpinner = document.getElementById('btn-spinner');
+        const form = document.getElementById('transcriptionForm');
+        const urlInput = document.getElementById('urlInput');
+        const modelSelect = document.getElementById('modelSelect');
+        const submitButton = document.getElementById('submitButton');
+        const status = document.getElementById('status');
 
-        generateBtn.addEventListener('click', () => {
+        function showStatus(message, type = 'info') {
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+        }
+
+        function hideStatus() {
+            status.style.display = 'none';
+        }
+
+        function setLoading(loading) {
+            if (loading) {
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<span class="loading"></span>Processing...';
+            } else {
+                submitButton.disabled = false;
+                submitButton.innerHTML = '🚀 Start Transcription';
+            }
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
             const url = urlInput.value.trim();
-
-            if (!url || !url.includes('youtube.com') && !url.includes('youtu.be')) {
-                showError('Please enter a valid YouTube URL.');
+            
+            if (!url) {
+                showStatus('Please enter a valid YouTube URL', 'error');
                 return;
             }
-            
-            // --- Call the backend ---
-            generateSRT(url);
-        });
 
-        async function generateSRT(url) {
-            // 1. Update UI to show processing state
-            setLoadingState(true);
-            hideError();
+            hideStatus();
+            setLoading(true);
+            showStatus('Starting transcription... This may take a few minutes.', 'info');
 
             try {
-                // 2. Make the API call to the Flask backend
                 const response = await fetch('/generate-srt', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ url: url }),
+                    body: JSON.stringify({
+                        url: url,
+                        model_size: modelSelect.value
+                    })
                 });
 
-                // 3. Check if the response is successful
                 if (response.ok) {
-                    // If successful, the response body is the SRT file content
-                    const blob = await response.blob();
+                    // Get the SRT content as text
+                    const srtContent = await response.text();
+                    
+                    // Create a download link
+                    const blob = new Blob([srtContent], { type: 'text/plain' });
                     const downloadUrl = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.style.display = 'none';
-                    a.href = downloadUrl;
-                    a.download = 'transcription.srt';
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(downloadUrl);
-                    a.remove();
+                    const link = document.createElement('a');
+                    link.href = downloadUrl;
+                    link.download = 'transcription.srt';
+                    link.textContent = 'Download SRT File';
+                    
+                    showStatus('Transcription completed successfully!', 'success');
+                    
+                    // Add download link to status
+                    const downloadDiv = document.createElement('div');
+                    downloadDiv.style.marginTop = '1rem';
+                    downloadDiv.appendChild(link);
+                    status.appendChild(downloadDiv);
+                    
+                    // Auto-download
+                    link.click();
+                    
                 } else {
-                    // If the server returned an error (e.g., 400, 500)
                     const errorData = await response.json();
-                    showError(errorData.error || 'An unknown error occurred.');
+                    showStatus(`Error: ${errorData.detail || 'Transcription failed'}`, 'error');
                 }
-
             } catch (error) {
-                // Handle network errors (e.g., server is down)
-                console.error('Fetch Error:', error);
-                showError('Could not connect to the server. Please try again later.');
+                showStatus(`Network error: ${error.message}`, 'error');
             } finally {
-                // 4. Reset the UI
-                setLoadingState(false);
+                setLoading(false);
             }
-        }
-
-        function setLoadingState(isLoading) {
-            if (isLoading) {
-                generateBtn.disabled = true;
-                btnText.classList.add('hidden');
-                btnSpinner.classList.remove('hidden');
-            } else {
-                generateBtn.disabled = false;
-                btnText.classList.remove('hidden');
-                btnSpinner.classList.add('hidden');
-            }
-        }
-
-        function showError(message) {
-            errorBox.textContent = message;
-            errorBox.classList.remove('hidden');
-        }
-
-        function hideError() {
-            errorBox.classList.add('hidden');
-        }
+        });
     </script>
-
 </body>
 </html>

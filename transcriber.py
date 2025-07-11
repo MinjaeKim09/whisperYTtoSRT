@@ -33,13 +33,12 @@ def get_whisper_implementation():
     return "none"
 
 def format_timestamp(seconds):
-    """Converts seconds into the SRT timestamp format (HH:MM:SS,ms)."""
-    seconds = float(seconds)
+    """Convert seconds to SRT timestamp format (HH:MM:SS,mmm)"""
     hours = int(seconds // 3600)
     minutes = int((seconds % 3600) // 60)
     secs = int(seconds % 60)
-    milliseconds = int((seconds - int(seconds)) * 1000)
-    return f"{hours:02d}:{minutes:02d}:{secs:02d},{milliseconds:03d}"
+    millisecs = int((seconds % 1) * 1000)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d},{millisecs:03d}"
 
 def transcribe_with_mlx(audio_path, model_size="medium"):
     """Transcribe audio using MLX-Whisper (Apple Silicon optimized)."""
@@ -174,13 +173,26 @@ def standalone_transcribe(url, model_size="medium"):
 if __name__ == "__main__":
     # Command line interface for standalone execution
     parser = argparse.ArgumentParser(description="Transcribe YouTube video to SRT")
-    parser.add_argument("url", help="YouTube URL to transcribe")
+    parser.add_argument("--url", help="YouTube URL to transcribe")
     parser.add_argument("--model-size", default="medium", choices=["tiny", "base", "small", "medium", "large"], 
                        help="Whisper model size (default: medium)")
     
     args = parser.parse_args()
     
-    # Run transcription and exit
-    exit_code = standalone_transcribe(args.url, args.model_size)
+    # Check if we have a URL (either positional or named argument)
+    url = args.url
+    if not url and len(sys.argv) > 1 and not sys.argv[1].startswith('--'):
+        # Handle positional URL argument for backwards compatibility
+        url = sys.argv[1]
+    
+    if not url:
+        print(json.dumps({
+            "success": False,
+            "error": "URL is required"
+        }))
+        sys.exit(1)
+    
+    # Process transcription
+    exit_code = standalone_transcribe(url, args.model_size)
     sys.exit(exit_code)
 
