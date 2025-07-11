@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>YouTube to SRT</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            text-align: center;
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 2rem;
+        }
+        
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        label {
+            font-weight: bold;
+            color: #555;
+        }
+        
+        input[type="text"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        
+        button {
+            background-color: #4caf50;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        .spinner {
+            display: none;
+            margin-top: 1rem;
+        }
+        
+        .spinner::after {
+            content: '';
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4caf50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .spinner-text {
+            display: block;
+            margin-top: 0.5rem;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .completion-message {
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            color: #155724;
+        }
+        
+        .download-link {
+            display: inline-block;
+            margin-top: 0.5rem;
+            padding: 0.5rem 1rem;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        
+        .download-link:hover {
+            background-color: #0056b3;
+        }
+        
+        .error-message {
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            color: #721c24;
+        }
+    </style>
+    <script>
+    function showProgress() {
+        document.getElementById('spinner').style.display = 'block';
+        document.getElementById('completion-message').style.display = 'none';
+        document.getElementById('error-message').style.display = 'none';
+    }
+    
+    function handleFormSubmit(event) {
+        event.preventDefault();
+        showProgress();
+        
+        const formData = new FormData(event.target);
+        
+        fetch('/generate-srt', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(data => {
+                    throw new Error(data.error || 'An error occurred');
+                });
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            // Hide spinner
+            document.getElementById('spinner').style.display = 'none';
+            
+            // Show completion message
+            const completionDiv = document.getElementById('completion-message');
+            completionDiv.style.display = 'block';
+            
+            // Create download link
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'transcription.srt';
+            a.textContent = 'Download SRT File';
+            a.className = 'download-link';
+            
+            // Clear previous download link if any
+            const existingLink = completionDiv.querySelector('.download-link');
+            if (existingLink) {
+                existingLink.remove();
+            }
+            
+            completionDiv.appendChild(a);
+        })
+        .catch(error => {
+            // Hide spinner
+            document.getElementById('spinner').style.display = 'none';
+            
+            // Show error message
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = error.message;
+            errorDiv.style.display = 'block';
+        });
+    }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>YouTube to SRT</h1>
+        <form onsubmit="handleFormSubmit(event)">
+            <label>YouTube URL:</label>
+            <input type="text" name="url" placeholder="Enter YouTube URL here...">
+            <button type="submit">Generate SRT</button>
+        </form>
+        <div id="spinner" class="spinner">
+            <span class="spinner-text">Processing...</span>
+        </div>
+        <div id="completion-message" class="completion-message">
+            <strong>✓ Transcription Complete!</strong><br>
+            Your SRT file is ready for download.
+        </div>
+        <div id="error-message" class="error-message"></div>
+    </div>
+</body>
+</html>
