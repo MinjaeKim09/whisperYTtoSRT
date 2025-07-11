@@ -10,8 +10,8 @@ from fastapi.requests import Request
 
 app = FastAPI()
 
-# Mount templates
-templates = Jinja2Templates(directory="templates")
+# Mount templates - use absolute path relative to this script
+templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
 
 class TranscriptionRequest(BaseModel):
     url: str
