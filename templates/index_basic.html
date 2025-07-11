@@ -140,10 +140,14 @@
         showProgress();
         
         const formData = new FormData(event.target);
+        const url = formData.get('url');
         
         fetch('/generate-srt', {
             method: 'POST',
-            body: formData
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ url: url })
         })
         .then(response => {
             if (!response.ok) {

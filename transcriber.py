@@ -5,6 +5,8 @@ import sys
 import uuid # Used for unique filenames
 import json
 import argparse
+import asyncio
+from typing import Generator, Dict, Any
 
 def get_whisper_implementation():
     """
@@ -53,6 +55,141 @@ def transcribe_with_openai(audio_path, model_size="medium"):
     print(f"INFO: Using OpenAI Whisper ({model_size} model)...", file=sys.stderr)
     model = whisper.load_model(model_size)
     return model.transcribe(audio_path, fp16=False)  # fp16=False for CPU compatibility
+
+def stream_transcribe_with_mlx(audio_path, model_size="medium") -> Generator[Dict[str, Any], None, None]:
+    """Stream transcription using MLX-Whisper, yielding segments as they're processed."""
+    import mlx_whisper
+    print(f"INFO: Using MLX-Whisper ({model_size} model) for streaming...", file=sys.stderr)
+    
+    # Start transcription
+    yield {"type": "status", "message": "Starting transcription with MLX-Whisper..."}
+    
+    # MLX-Whisper doesn't have built-in streaming, so we'll transcribe and yield segments
+    result = mlx_whisper.transcribe(audio_path, path_or_hf_repo=f"mlx-community/whisper-{model_size}")
+    
+    # Yield each segment as it becomes available
+    for i, segment in enumerate(result['segments']):
+        start_time = format_timestamp(segment['start'])  # type: ignore
+        end_time = format_timestamp(segment['end'])  # type: ignore
+        text = segment['text'].strip()  # type: ignore
+        
+        segment_data = {
+            "type": "segment",
+            "index": i + 1,
+            "start_time": start_time,
+            "end_time": end_time,
+            "text": text,
+            "srt_format": f"{i + 1}\n{start_time} --> {end_time}\n{text}\n"
+        }
+        yield segment_data
+
+def stream_transcribe_with_openai(audio_path, model_size="medium") -> Generator[Dict[str, Any], None, None]:
+    """Stream transcription using OpenAI Whisper, yielding segments as they're processed."""
+    import whisper
+    print(f"INFO: Using OpenAI Whisper ({model_size} model) for streaming...", file=sys.stderr)
+    
+    # Start transcription
+    yield {"type": "status", "message": "Starting transcription with OpenAI Whisper..."}
+    
+    model = whisper.load_model(model_size)
+    result = model.transcribe(audio_path, fp16=False)
+    
+    # Yield each segment as it becomes available
+    for i, segment in enumerate(result['segments']):
+        start_time = format_timestamp(segment['start'])  # type: ignore
+        end_time = format_timestamp(segment['end'])  # type: ignore
+        text = segment['text'].strip()  # type: ignore
+        
+        segment_data = {
+            "type": "segment",
+            "index": i + 1,
+            "start_time": start_time,
+            "end_time": end_time,
+            "text": text,
+            "srt_format": f"{i + 1}\n{start_time} --> {end_time}\n{text}\n"
+        }
+        yield segment_data
+
+def process_youtube_video_streaming(url: str, model_size: str = "medium") -> Generator[Dict[str, Any], None, None]:
+    """
+    Stream processing of YouTube video: downloads audio, transcribes it, and yields progress updates.
+    Yields dictionaries with different types: 'status', 'segment', 'complete', 'error'
+    """
+    # Use a unique ID for filenames to avoid conflicts
+    request_id = str(uuid.uuid4())
+    
+    # Define paths for temporary files
+    temp_dir = os.path.join(os.getcwd(), 'temp')
+    os.makedirs(temp_dir, exist_ok=True)
+    
+    output_filename_base = f'audio_{request_id}'
+    output_path_template = os.path.join(temp_dir, f'{output_filename_base}.%(ext)s')
+    final_wav_path = os.path.join(temp_dir, f'{output_filename_base}.wav')
+
+    try:
+        # Step 1: Download audio
+        yield {"type": "status", "message": "Downloading audio from YouTube..."}
+        
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'wav',
+            }],
+            'outtmpl': output_path_template,
+            'quiet': True,
+            'noplaylist': True,
+        }
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+        
+        if not os.path.exists(final_wav_path):
+            raise FileNotFoundError(f"Expected audio file not found at {final_wav_path}")
+        
+        yield {"type": "status", "message": "Audio download complete. Starting transcription..."}
+
+        # Step 2: Stream transcription
+        implementation = get_whisper_implementation()
+        
+        if implementation == "mlx":
+            transcription_generator = stream_transcribe_with_mlx(final_wav_path, model_size)
+        elif implementation == "openai":
+            transcription_generator = stream_transcribe_with_openai(final_wav_path, model_size)
+        else:
+            yield {"type": "error", "message": "No Whisper implementation found. Please install mlx-whisper or openai-whisper."}
+            return
+
+        # Collect all segments for final SRT
+        all_segments = []
+        
+        # Yield each segment as it's processed
+        for segment_data in transcription_generator:
+            if segment_data["type"] == "segment":
+                all_segments.append(segment_data["srt_format"])
+            yield segment_data
+
+        # Step 3: Complete transcription
+        full_srt_content = "\n".join(all_segments)
+        yield {
+            "type": "complete",
+            "message": "Transcription complete!",
+            "srt_content": full_srt_content,
+            "total_segments": len(all_segments)
+        }
+
+    except yt_dlp.utils.DownloadError as e:
+        yield {"type": "error", "message": f"Error downloading the video: {e}"}
+    except Exception as e:
+        yield {"type": "error", "message": f"An unexpected error occurred: {e}"}
+    finally:
+        # Clean up the downloaded WAV file
+        if os.path.exists(final_wav_path):
+            try:
+                os.remove(final_wav_path)
+                print(f"INFO: Removed temporary file '{final_wav_path}'.", file=sys.stderr)
+            except OSError as e:
+                print(f"ERROR: Could not remove file {final_wav_path}: {e}", file=sys.stderr)
 
 def process_youtube_video(url, model_size="medium"):
     """
