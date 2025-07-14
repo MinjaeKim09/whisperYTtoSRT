@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Whisper Transcription</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 90%;
+            padding: 2rem;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .url-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .url-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .model-select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+
+        .model-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .processing-mode {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .mode-option {
+            flex: 1;
+            padding: 1rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .mode-option.selected {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .mode-option h3 {
+            margin-bottom: 0.5rem;
+            color: #333;
+        }
+
+        .mode-option p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .submit-button {
+            width: 100%;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .submit-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .submit-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .status {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            display: none;
+        }
+
+        .status.info {
+            background: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #bbdefb;
+        }
+
+        .status.success {
+            background: #e8f5e8;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+
+        .progress-container {
+            margin-top: 1.5rem;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e1e5e9;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            text-align: center;
+            color: #666;
+            margin-bottom: 1rem;
+        }
+
+        .transcription-container {
+            display: none;
+            margin-top: 1.5rem;
+        }
+
+        .transcription-title {
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #333;
+        }
+
+        .transcription-content {
+            max-height: 400px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            white-space: pre-wrap;
+        }
+
+
+
+        .download-section {
+            margin-top: 1.5rem;
+            text-align: center;
+            display: none;
+        }
+
+        .download-button {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: transform 0.2s ease;
+        }
+
+        .download-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e1e5e9;
+            color: #666;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎵 Whisper Transcription</h1>
+            <p>YouTube video to SRT transcription with real-time progress</p>
+        </div>
+        
+        <form id="transcriptionForm">
+            <div class="form-group">
+                <label for="urlInput">YouTube URL</label>
+                <input type="url" 
+                       class="url-input" 
+                       id="urlInput" 
+                       placeholder="https://www.youtube.com/watch?v=..." 
+                       required />
+            </div>
+            
+            <div class="form-group">
+                <label for="modelSelect">Model Size</label>
+                <select class="model-select" id="modelSelect">
+                    <option value="tiny">Tiny (Fastest, less accurate)</option>
+                    <option value="base">Base</option>
+                    <option value="small">Small</option>
+                    <option value="medium" selected>Medium (Recommended)</option>
+                    <option value="large">Large (Slowest, most accurate)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Processing Mode</label>
+                <div class="processing-mode">
+                    <div class="mode-option selected" data-mode="streaming">
+                        <h3>🔄 Real-time</h3>
+                        <p>See transcription progress segment by segment</p>
+                    </div>
+                    <div class="mode-option" data-mode="batch">
+                        <h3>📦 Batch</h3>
+                        <p>Process entire video at once (traditional method)</p>
+                    </div>
+                </div>
+            </div>
+            
+            <button type="submit" class="submit-button" id="submitButton">
+                🚀 Start Transcription
+            </button>
+        </form>
+        
+        <div class="status" id="status"></div>
+        
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-text" id="progressText">Initializing...</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+
+        <div class="transcription-container" id="transcriptionContainer">
+            <div class="transcription-title">Live Transcription:</div>
+            <div class="transcription-content" id="transcriptionContent"></div>
+        </div>
+
+        <div class="download-section" id="downloadSection">
+            <a href="#" class="download-button" id="downloadButton">📥 Download SRT File</a>
+        </div>
+        
+        <div class="footer">
+            <p>Powered by OpenAI Whisper and MLX-Whisper</p>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('transcriptionForm');
+        const urlInput = document.getElementById('urlInput');
+        const modelSelect = document.getElementById('modelSelect');
+        const submitButton = document.getElementById('submitButton');
+        const status = document.getElementById('status');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressText = document.getElementById('progressText');
+        const progressFill = document.getElementById('progressFill');
+        const transcriptionContainer = document.getElementById('transcriptionContainer');
+        const transcriptionContent = document.getElementById('transcriptionContent');
+        const downloadSection = document.getElementById('downloadSection');
+        const downloadButton = document.getElementById('downloadButton');
+
+        let currentMode = 'streaming';
+        let finalSrtContent = '';
+
+        // Mode selection
+        document.querySelectorAll('.mode-option').forEach(option => {
+            option.addEventListener('click', () => {
+                document.querySelectorAll('.mode-option').forEach(o => o.classList.remove('selected'));
+                option.classList.add('selected');
+                currentMode = option.dataset.mode;
+            });
+        });
+
+        function showStatus(message, type = 'info') {
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+        }
+
+        function hideStatus() {
+            status.style.display = 'none';
+        }
+
+        function setLoading(loading) {
+            if (loading) {
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<span class="loading"></span>Processing...';
+            } else {
+                submitButton.disabled = false;
+                submitButton.innerHTML = '🚀 Start Transcription';
+            }
+        }
+
+        function updateProgress(progress, message) {
+            progressText.textContent = message;
+            progressFill.style.width = `${progress}%`;
+        }
+
+
+
+        function updateTranscription(text) {
+            transcriptionContent.textContent = text;
+            transcriptionContainer.style.display = 'block';
+            
+            // Auto-scroll to bottom
+            transcriptionContent.scrollTop = transcriptionContent.scrollHeight;
+        }
+
+        function enableDownload(srtContent) {
+            finalSrtContent = srtContent;
+            const blob = new Blob([srtContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            downloadButton.href = url;
+            downloadButton.download = 'transcription.srt';
+            downloadSection.style.display = 'block';
+        }
+
+        async function processStreaming(url, modelSize) {
+            progressContainer.style.display = 'block';
+            updateProgress(0, 'Starting transcription...');
+
+            try {
+                const response = await fetch('/generate-srt-stream', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        url: url,
+                        model_size: modelSize
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                
+                                if (data.error) {
+                                    showStatus(`Error: ${data.error}`, 'error');
+                                    return;
+                                }
+
+                                                                switch (data.status) {
+                                    case 'downloading':
+                                        updateProgress(data.progress || 5, data.message);
+                                        break;
+                                    
+                                    case 'preparing':
+                                        updateProgress(data.progress || 10, data.message);
+                                        break;
+                                    
+                                    case 'ready':
+                                        updateProgress(data.progress || 15, data.message);
+                                        break;
+                                    
+                                    case 'loading_model':
+                                        updateProgress(data.progress || 20, data.message);
+                                        break;
+                                    
+                                    case 'processing_chunk':
+                                        const processingChunkDisplay = data.current_chunk && data.total_chunks 
+                                            ? `(${data.current_chunk}/${data.total_chunks})` 
+                                            : '';
+                                        updateProgress(data.progress || 50, `Transcribing chunk... ${processingChunkDisplay}`);
+                                        break;
+                                    
+                                    case 'segment_completed':
+                                        const chunkDisplay = data.current_chunk && data.total_chunks 
+                                            ? `(${data.current_chunk}/${data.total_chunks})` 
+                                            : '';
+                                        updateProgress(data.progress || 50, `Transcribing chunk... ${chunkDisplay}`);
+                                        
+                                        // Update transcription with partial results
+                                        if (data.partial_srt) {
+                                            updateTranscription(data.partial_srt);
+                                        }
+                                        break;
+                                    
+                                    case 'chunk_completed':
+                                        updateProgress(data.progress || 50, data.message);
+                                        break;
+                                    
+                                    case 'chunk_error':
+                                        showStatus(`Error processing chunk: ${data.error}`, 'error');
+                                        break;
+                                    
+                                    case 'completed':
+                                        updateProgress(100, data.message);
+                                        showStatus('Transcription completed successfully!', 'success');
+                                        
+                                        if (data.final_srt) {
+                                            updateTranscription(data.final_srt);
+                                            enableDownload(data.final_srt);
+                                        }
+                                        break;
+                                }
+                            } catch (e) {
+                                console.warn('Failed to parse SSE data:', line);
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                showStatus(`Network error: ${error.message}`, 'error');
+            }
+        }
+
+        async function processBatch(url, modelSize) {
+            try {
+                const response = await fetch('/generate-srt', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        url: url,
+                        model_size: modelSize
+                    })
+                });
+
+                if (response.ok) {
+                    const srtContent = await response.text();
+                    updateTranscription(srtContent);
+                    enableDownload(srtContent);
+                    showStatus('Transcription completed successfully!', 'success');
+                } else {
+                    const errorData = await response.json();
+                    showStatus(`Error: ${errorData.detail || 'Transcription failed'}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`Network error: ${error.message}`, 'error');
+            }
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const url = urlInput.value.trim();
+            
+            if (!url) {
+                showStatus('Please enter a valid YouTube URL', 'error');
+                return;
+            }
+
+            // Reset UI
+            hideStatus();
+            progressContainer.style.display = 'none';
+            transcriptionContainer.style.display = 'none';
+            downloadSection.style.display = 'none';
+            transcriptionContent.textContent = '';
+            
+            setLoading(true);
+            showStatus('Starting transcription... This may take a few minutes.', 'info');
+
+            try {
+                if (currentMode === 'streaming') {
+                    await processStreaming(url, modelSelect.value);
+                } else {
+                    await processBatch(url, modelSelect.value);
+                }
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        // Auto-download when download button is clicked
+        downloadButton.addEventListener('click', (e) => {
+            if (finalSrtContent) {
+                // The download will happen automatically due to the href and download attributes
+                setTimeout(() => {
+                    showStatus('SRT file downloaded successfully!', 'success');
+                }, 100);
+            }
+        });
+    </script>
+</body>
+</html>

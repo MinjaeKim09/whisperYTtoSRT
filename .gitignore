@@ -1,0 +1,38 @@
+# Temporary files and directories
+temp/
+*.tmp
+*.log
+
+# Audio files
+*.wav
+*.mp3
+*.m4a
+*.flac
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Virtual environments
+venv/
+env/
+.env
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Model files (if any)
+*.pt
+*.pth
+*.ckpt
