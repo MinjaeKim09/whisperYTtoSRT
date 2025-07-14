@@ -2,12 +2,28 @@
 temp/
 *.tmp
 *.log
+*.bak
+*.backup
 
-# Audio files
+# Audio files (YouTube downloads, etc.)
 *.wav
 *.mp3
 *.m4a
 *.flac
+*.aac
+*.ogg
+*.opus
+*.webm
+*.mp4
+*.avi
+*.mkv
+
+# Transcription output files (keep these local)
+*.srt
+*.vtt
+*.txt
+transcription_*.srt
+output_*.srt
 
 # Python cache
 __pycache__/
@@ -16,23 +32,88 @@ __pycache__/
 *.pyd
 .Python
 *.so
+.pytest_cache/
+.coverage
+htmlcov/
 
 # Virtual environments
 venv/
 env/
 .env
+.venv/
+ENV/
+env.bak/
+venv.bak/
 
 # IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
+.spyderproject
+.spyproject
 
 # OS files
 .DS_Store
 Thumbs.db
+*.log
+.fuse_hidden*
 
-# Model files (if any)
+# Model files and AI/ML artifacts
 *.pt
 *.pth
 *.ckpt
+*.bin
+*.safetensors
+models/
+checkpoints/
+whisper_models/
+*.model
+
+# Large data files
+*.zip
+*.tar.gz
+*.tar.bz2
+*.rar
+*.7z
+*.iso
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Package files
+*.egg-info/
+dist/
+build/
+*.egg
+*.whl
+
+# Environment variables and secrets
+.env
+.env.local
+.env.production
+.env.staging
+secrets.yaml
+config.yaml
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+*.db
+
+# Large directories that might accumulate
+downloads/
+cache/
+.cache/
+node_modules/
+
+# MLX and Apple Silicon specific
+*.mlpackage
+*.mlmodel
+
+# Whisper specific temporary files
+whisper_*.wav
+audio_*.wav
+temp_audio.*
